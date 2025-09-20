@@ -1,69 +1,49 @@
+<!-- index.html -->
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>SongTap – Spotify Login</title>
-  <!-- TailwindCSS via CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="h-full bg-gradient-to-br from-green-400 via-emerald-500 to-teal-600 flex items-center justify-center">
-  <main class="bg-white/20 backdrop-blur-lg rounded-2xl p-10 max-w-xl w-full text-center space-y-6">
-    <h1 class="text-4xl font-extrabold text-white drop-shadow-lg">🎵 SongTap</h1>
-    <p class="text-white text-lg">
-      Tap an NFC card, guess the song, score points.<br>
-      Authorize SongTap to read/control playback and access your playlists.
-    </p>
-    <button
-      onclick="startLogin()"
-      class="inline-flex items-center justify-center gap-3 px-8 py-4 bg-black/80 text-white font-semibold rounded-full hover:bg-black transition"
-    >
-      <!-- Spotify icon -->
-      <svg viewBox="0 0 168 168" class="w-6 h-6"><path fill="#1ED760" d="M84 0a84 84 0 100 168 84 84 0 000-168z"/><path d="M121 121c-2 3-6 5-10 3-28-17-63-21-104-12-4 1-8-2-9-6-1-4 2-8 6-9 45-10 84-6 117 14 3 2 4 6 0 10zm14-24c-2 4-6 6-11 3-32-19-80-25-118-14-4 1-9-1-10-5-2-4 1-9 5-10 43-12 95-5 131 16 4 3 6 8 3 12-2 4-7 5-12 3zm1-25c-37-22-99-24-135-14-5 1-10-1-12-6s1-10 6-12c41-11 108-9 150 16 4 3 6 8 3 12-2 4-7 5-12 3z" fill="#fff"/></svg>
-      Log in with Spotify
-    </button>
-    <footer class="text-white/80 text-sm">
-      Powered by Spotify • ESP32 • NFC
-    </footer>
-  </main>
+<body>
+  <h1>🎵 SongTap – Login with Spotify</h1>
+  <button id="login-button">Log in with Spotify</button>
 
   <script>
-    /* -------- PKCE helpers -------- */
-    function randStr(len) {
-      const c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let s = ''; while (len--) s += c[Math.floor(Math.random()*c.length)];
-      return s;
+    // Generate a random string of given length (PKCE code verifier):contentReference[oaicite:5]{index=5}.
+    function generateVerifier(length) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      const randomValues = crypto.getRandomValues(new Uint8Array(length));
+      randomValues.forEach(val => { result += chars[val % chars.length]; });
+      return result;
     }
-    async function sha256(x) {
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(x));
-      return btoa(String.fromCharCode(...new Uint8Array(buf)))
-              .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    // Compute SHA-256 hash and encode in Base64-url (PKCE code challenge):contentReference[oaicite:6]{index=6}.
+    async function generateChallenge(verifier) {
+      const encoder = new TextEncoder();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(verifier));
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const base64String = btoa(String.fromCharCode(...hashArray))
+        .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+      return base64String;
     }
 
-    async function startLogin() {
-      const verifier  = randStr(128);
-      const challenge = await sha256(verifier);
+    document.getElementById('login-button').addEventListener('click', async () => {
+      const verifier = generateVerifier(128);
+      const challenge = await generateChallenge(verifier);
       localStorage.setItem('pkce_verifier', verifier);
 
-      const scopes = [
-        'user-read-playback-state',
-        'user-read-currently-playing',
-        'playlist-read-private',
-        'playlist-read-collaborative',
-        'user-modify-playback-state'
-      ].join(' ');
-
+      // Build Spotify authorize URL with PKCE parameters
       const params = new URLSearchParams({
-        client_id: 'd9496da4c257489e8a23ab7d41069b15',
+        client_id: 'd9469dc4e627498e8c23ab7641069b15',
         response_type: 'code',
         redirect_uri: 'https://song-tap.com/callback.html',
         code_challenge_method: 'S256',
         code_challenge: challenge,
-        scope: scopes
+        scope: 'user-read-playback-state user-read-currently-playing playlist-read-private user-modify-playback-state'
       });
-
       window.location = 'https://accounts.spotify.com/authorize?' + params.toString();
-    }
+    });
   </script>
 </body>
 </html>
