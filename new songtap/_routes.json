@@ -1,10 +1,5 @@
 {
   "version": 1,
-  "include": [
-    "/token-exchange*",
-    "/push-to-esp*"
-  ],
-  "exclude": [
-    "/*"
-  ]
+  "include": [ "/token-exchange*", "/push-to-esp*" ],
+  "exclude": []
 }
