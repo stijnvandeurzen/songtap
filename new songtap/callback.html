@@ -1,53 +1,48 @@
+<!-- callback.html -->
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SongTap · Logging You In…</title>
-  <!-- TailwindCSS via CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <title>SongTap – Logging You In…</title>
 </head>
-<body class="h-full bg-gradient-to-br from-teal-600 via-emerald-500 to-green-400 flex items-center justify-center">
-  <div class="bg-white/20 backdrop-blur-lg rounded-2xl p-10 max-w-md w-full text-center space-y-6">
-    <!-- Spinner -->
-    <svg class="w-12 h-12 mx-auto animate-spin text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4"></circle>
-      <path class="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" stroke-width="4" stroke-linecap="round"></path>
-    </svg>
-    <h1 class="text-2xl font-bold text-white">SongTap</h1>
-    <p id="status" class="text-white/90 text-lg">Finishing login…</p>
-  </div>
+<body>
+  <h1>Finalizing Login...</h1>
+  <div id="message">Please wait...</div>
 
   <script>
-    const statusEl = id => document.getElementById(id);
-    const setStatus = msg => statusEl("status").textContent = msg;
+    async function finishLogin() {
+      const statusEl = document.getElementById('message');
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const verifier = localStorage.getItem('pkce_verifier');
 
-    const params   = new URLSearchParams(location.search);
-    const code     = params.get("code");
-    const verifier = localStorage.getItem("pkce_verifier");
-    if (!code || !verifier) {
-      setStatus("❌ Missing code or verifier");
-      throw new Error("Missing PKCE parameters");
+      if (!code || !verifier) {
+        statusEl.textContent = '❌ Missing code or verifier';
+        return;
+      }
+
+      statusEl.textContent = 'Exchanging code for token...';
+      try {
+        const response = await fetch('/token-exchange', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, verifier })
+        });
+        const result = await response.json();
+        if (response.ok && result.access_token) {
+          statusEl.textContent = '✅ Login successful!';
+          // Display the access token (for demo purposes)
+          const pre = document.createElement('pre');
+          pre.textContent = JSON.stringify(result, null, 2);
+          document.body.appendChild(pre);
+        } else {
+          throw new Error(result.error || 'No access token returned');
+        }
+      } catch (err) {
+        statusEl.textContent = '❌ Error: ' + err.message;
+      }
     }
-
-    // 1. Exchange code → token via Netlify Function
-    fetch("/token-exchange", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, verifier })
-    })
-    .then(r => r.ok ? r.json() : Promise.reject("Exchange failed"))
-    .then(data => {
-      if (!data.access_token) throw "No access_token in response";
-      setStatus("✅ Redirecting token to device…");
-      // 2. Redirect to ESP32 via mDNS
-      location.href = "http://songtap.local/receive#" +
-                      encodeURIComponent(data.access_token);
-    })
-    .catch(err => {
-      console.error(err);
-      setStatus("❌ Login failed: " + err);
-    });
+    finishLogin();
   </script>
 </body>
 </html>
